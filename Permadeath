@@ -9,35 +9,42 @@ if _G.Perma == true then
         local root = character:WaitForChild("HumanoidRootPart")
         local humanoid = character:WaitForChild("Humanoid")
         
+        -- Eski bağlantıyı temizle
         if activeConnection then activeConnection:Disconnect() end
 
-        -- 1. DURUMLARI DÜZENLE
+        -- 1. DURUMLARI AYARLA
+        -- Karakterin ölmesini ve yere yığılmasını engeller
         humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
-        -- FallingDown ve Ragdoll'u kapatmak yürüme bozukluklarını engeller
         humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
         humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
         
-        -- Yürüme sorunu çözümü: RootPart'ın çarpışmasını açık tutuyoruz 
-        -- ama diğer parçaların (kol, bacak) bir yere takılmasını engellemek için sadece iç içe geçmeyi kapatıyoruz.
+        -- 2. CANCOLLIDE AYARI (FULL AÇIK)
+        -- Karakterin tüm parçalarının çarpışmasını aktif eder
         for _, part in pairs(character:GetChildren()) do
-            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                part.CanCollide = false
+            if part:IsA("BasePart") then
+                part.CanCollide = true
             end
         end
-        root.CanCollide = true -- Yürüyebilmek için zemine basması şart!
 
-        -- 2. STABİL FİZİK DÖNGÜSÜ
+        -- 3. DOĞAL FİZİK DÖNGÜSÜ
         activeConnection = RunService.Heartbeat:Connect(function()
-            if not root or not root.Parent or humanoid.Health == 0 then
-                -- Karakterin fiziksel olarak aktif kalmasını sağlar ama yürüme hızını ellemez
-                -- Velocity'e dokunmuyoruz, sadece düşmeyi/silinmeyi engelleyen küçük bir itki.
-                local vel = root.AssemblyLinearVelocity
-                root.AssemblyLinearVelocity = Vector3.new(vel.X, vel.Y, vel.Z)
+            if not root or not root.Parent then
+                if activeConnection then activeConnection:Disconnect() end
+                return
+            end
+
+            -- Hıza (Velocity) müdahale etmiyoruz, karakter tamamen özgür.
+            -- Sadece karakterin ağ sahipliğini (network ownership) canlı tutmak için 
+            -- arka planda fizik motoruyla olan bağı koruyoruz.
+            if humanoid.Health <= 0 then
+                -- Karakterin ölmesine rağmen parçaların kaybolmaması için gereken stabilite:
+                local currentVel = root.AssemblyLinearVelocity
+                root.AssemblyLinearVelocity = currentVel + Vector3.new(0, 0.0001, 0)
             end
         end)
     end
 
-    -- 3. YENİDEN DOĞMA BAĞLANTISI
+    -- 4. OTOMATİK BAĞLANTI
     player.CharacterAdded:Connect(function(newChar)
         task.wait(1)
         startPermaDeath(newChar)
@@ -47,5 +54,5 @@ if _G.Perma == true then
         task.spawn(function() startPermaDeath(player.Character) end)
     end
 
-    print("--- PERMA DEATH: YÜRÜME DÜZELTİLDİ ---")
+    print("--- PERMA DEATH: FULL COLLISION & NORMAL HIZ AKTİF ---")
 end
