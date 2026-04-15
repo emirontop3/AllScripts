@@ -1,43 +1,51 @@
 if _G.Perma == true then
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
+
     local player = Players.LocalPlayer
     local activeConnection = nil
+
     local function startPermaDeath(character)
         local root = character:WaitForChild("HumanoidRootPart")
         local humanoid = character:WaitForChild("Humanoid")
-        -- Eğer eski bir bağlantı varsa temizle
+        
         if activeConnection then activeConnection:Disconnect() end
-        -- 1. ÖLÜMÜ VE DURUMLARI ENGELLEME
+
+        -- 1. DURUMLARI KAPAT (Karakterin yere yığılmasını önler)
         humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
         humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
         humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-        -- Karakterin parçalarının dağılmasını önlemek için CanCollide kapatılabilir
-        -- Ancak tam "Fling" koruması için root'un hızını sabit tutacağız.
+        
+        -- Çarpışmayı kapatmak fling riskini %99 azaltır
         root.CanCollide = false
-        -- 2. FİZİK MOTORUNU SABİT TUTMA (Stabil Perma)
+
+        -- 2. DOĞAL HIZ DÖNGÜSÜ
         activeConnection = RunService.Heartbeat:Connect(function()
             if not root or not root.Parent then
                 if activeConnection then activeConnection:Disconnect() end
                 return
             end
-            -- Fling yapmaması için hızı devasa rakamlara (500 vb.) çarpmıyoruz.
-            -- Sadece karakterin "silinmesini" engelleyecek kadar küçük bir hareket veriyoruz.
+
+            -- Hızı olduğu gibi bırakıyoruz (oldV = oldV)
+            -- Sadece çok küçük bir 'yaşam sinyali' (0.001) ekliyoruz ki 
+            -- oyun motoru karakteri "hareketsiz/ölü" sanıp silmesin.
             local currentV = root.AssemblyLinearVelocity
-            -- Hızı koru ama fizik motoruna 'aktifim' mesajı gönder
-            root.AssemblyLinearVelocity = Vector3.new(currentV.X, 0.1, currentV.Z)
-            -- Network ownership'i elde tutmak için stabil bir rotasyon hızı (isteğe bağlı)
+            root.AssemblyLinearVelocity = currentV + Vector3.new(0, 0.001, 0)
+            
+            -- Dönüş hızını sıfırlayarak titremeyi engeller
             root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
         end)
     end
-    -- 3. OTOMATİK YENİLEME
+
+    -- 3. KARAKTER YENİLENİNCE ÇALIŞTIR
     player.CharacterAdded:Connect(function(newChar)
-        task.wait(1.5) -- Karakterin tam yüklenmesi için bekleme
+        task.wait(1.5)
         startPermaDeath(newChar)
     end)
-    -- Eğer script çalıştığında karakter zaten varsa başlat
+
     if player.Character then
         task.spawn(function() startPermaDeath(player.Character) end)
     end
-    print("--- PERMA DEATH AKTİF (FLING ENGELLENDİ) ---")
+
+    print("--- PERMA DEATH: NORMAL HIZ AKTİF ---")
 end
