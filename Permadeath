@@ -11,35 +11,35 @@ if _G.Perma == true then
         
         if activeConnection then activeConnection:Disconnect() end
 
-        -- 1. DURUMLARI KAPAT (Karakterin yere yığılmasını önler)
+        -- 1. DURUMLARI DÜZENLE
         humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+        -- FallingDown ve Ragdoll'u kapatmak yürüme bozukluklarını engeller
         humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
         humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
         
-        -- Çarpışmayı kapatmak fling riskini %99 azaltır
-        root.CanCollide = false
-
-        -- 2. DOĞAL HIZ DÖNGÜSÜ
-        activeConnection = RunService.Heartbeat:Connect(function()
-            if not root or not root.Parent then
-                if activeConnection then activeConnection:Disconnect() end
-                return
+        -- Yürüme sorunu çözümü: RootPart'ın çarpışmasını açık tutuyoruz 
+        -- ama diğer parçaların (kol, bacak) bir yere takılmasını engellemek için sadece iç içe geçmeyi kapatıyoruz.
+        for _, part in pairs(character:GetChildren()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                part.CanCollide = false
             end
+        end
+        root.CanCollide = true -- Yürüyebilmek için zemine basması şart!
 
-            -- Hızı olduğu gibi bırakıyoruz (oldV = oldV)
-            -- Sadece çok küçük bir 'yaşam sinyali' (0.001) ekliyoruz ki 
-            -- oyun motoru karakteri "hareketsiz/ölü" sanıp silmesin.
-            local currentV = root.AssemblyLinearVelocity
-            root.AssemblyLinearVelocity = currentV + Vector3.new(0, 0.001, 0)
-            
-            -- Dönüş hızını sıfırlayarak titremeyi engeller
-            root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        -- 2. STABİL FİZİK DÖNGÜSÜ
+        activeConnection = RunService.Heartbeat:Connect(function()
+            if not root or not root.Parent or humanoid.Health == 0 then
+                -- Karakterin fiziksel olarak aktif kalmasını sağlar ama yürüme hızını ellemez
+                -- Velocity'e dokunmuyoruz, sadece düşmeyi/silinmeyi engelleyen küçük bir itki.
+                local vel = root.AssemblyLinearVelocity
+                root.AssemblyLinearVelocity = Vector3.new(vel.X, vel.Y, vel.Z)
+            end
         end)
     end
 
-    -- 3. KARAKTER YENİLENİNCE ÇALIŞTIR
+    -- 3. YENİDEN DOĞMA BAĞLANTISI
     player.CharacterAdded:Connect(function(newChar)
-        task.wait(1.5)
+        task.wait(1)
         startPermaDeath(newChar)
     end)
 
@@ -47,5 +47,5 @@ if _G.Perma == true then
         task.spawn(function() startPermaDeath(player.Character) end)
     end
 
-    print("--- PERMA DEATH: NORMAL HIZ AKTİF ---")
+    print("--- PERMA DEATH: YÜRÜME DÜZELTİLDİ ---")
 end
