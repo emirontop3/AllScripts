@@ -1,0 +1,54 @@
+_G.Perma = true
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local activeConnection = nil
+
+local function startPermaDeath(character)
+    local root = character:WaitForChild("HumanoidRootPart")
+    local humanoid = character:WaitForChild("Humanoid")
+    
+    -- Eğer eski bir bağlantı varsa temizle
+    if activeConnection then activeConnection:Disconnect() end
+
+    -- 1. ÖLÜMÜ ENGELLEME: Karakterin "Ölü" durumuna geçmesini kapatır
+    humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+    humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+    
+    -- Çarpışma ayarı (Fling/Hız hilesi için genellikle false yapılır)
+    root.CanCollide = false
+
+    -- 2. FİZİK MOTORUNU KANDIRMA (Heartbeat Loop)
+    activeConnection = RunService.Heartbeat:Connect(function()
+        if not root or not root.Parent then
+            if activeConnection then activeConnection:Disconnect() end
+            return
+        end
+
+        -- Karakterin hızını (Velocity) saniyede onlarca kez aşırı artırıp azaltır
+        -- Bu sayede karakter ölse bile parçaları dünyadan silinmez (Despawn olmaz)
+        local oldV = root.AssemblyLinearVelocity
+        root.AssemblyLinearVelocity = oldV * 500 + Vector3.new(0, 500, 0)
+        
+        RunService.RenderStepped:Wait()
+        root.AssemblyLinearVelocity = oldV
+        
+        RunService.Stepped:Wait()
+        root.AssemblyLinearVelocity = oldV + Vector3.new(0, 0.1, 0)
+    end)
+end
+
+-- 3. OTOMATİK YENİLEME: Karakter her doğduğunda modu aktif eder
+player.CharacterAdded:Connect(function(newChar)
+    task.wait(1.5) -- Karakterin tam yüklenmesi için kritik bekleme süresi
+    startPermaDeath(newChar)
+end)
+
+-- Eğer script çalıştığında karakter zaten varsa başlat
+if player.Character then
+    task.spawn(function() startPermaDeath(player.Character) end)
+end
+
+print("--- PERMA DEATH: ".. _.Gperma)
