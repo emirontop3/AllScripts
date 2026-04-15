@@ -52,5 +52,5 @@ if player.Character then
     task.spawn(function() startPermaDeath(player.Character) end)
 end
 
-print("--- PERMA DEATH: ".. _.Gperma)
+print("--- PERMA DEATH: ".. _G.Perma)
 end
